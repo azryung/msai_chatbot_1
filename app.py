@@ -3,29 +3,26 @@ import os
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 
-#test commit
-
-
-# 1. 환경 변수 로드 (.env 파일이 같은 폴더에 있어야 함)
+# 1. 환경 변수 로드
+# 로컬에서는 .env 파일을 읽고, Streamlit Cloud에서는 Secrets를 읽어옵니다.
 load_dotenv()
 
 st.title("🤖 나의 첫 AI 챗봇")
 
-
-# AZURE_OAI_ENDPOINT=https://8a000-openai.openai.azure.com/openai/deployments/gpt-4o-mini/chat/completions?api-version=2025-01-01-preview
-# AZURE_OAI_KEY=subscription_key = FdzMW6PRDCYTGUrDbu9pntnsYDH3zLQhQn4npCw9JattFgE6eFfhJQQJ99BKACHYHv6XJ3w3AAABACOGYCVk
-# AZURE_OAI_DEPLOYMENT=gpt-4o-mini
-
+# [안전 장치] 필수 키가 제대로 로드되었는지 확인
+if not os.getenv("AZURE_OAI_KEY"):
+    st.error("API 키가 설정되지 않았습니다. .env 파일이나 Streamlit Secrets를 확인해주세요.")
+    st.stop()
 
 # 2. Azure OpenAI 클라이언트 설정
-# (실제 값은 .env 파일이나 여기에 직접 입력하세요)
+# 이제 직접 적지 않고 os.getenv를 통해 가져옵니다.
 client = AzureOpenAI(
-    api_key="FdzMW6PRDCYTGUrDbu9pntnsYDH3zLQhQn4npCw9JattFgE6eFfhJQQJ99BKACHYHv6XJ3w3AAABACOGYCVk",
-    api_version="2025-01-01-preview",
-    azure_endpoint="https://8a000-openai.openai.azure.com/"
+    api_key=os.getenv("AZURE_OAI_KEY"), 
+    api_version="2025-01-01-preview", 
+    azure_endpoint=os.getenv("AZURE_OAI_ENDPOINT")
 )
 
-# 3. 대화기록(Session State) 초기화 - 이게 없으면 새로고침 때마다 대화가 날아갑니다!
+# 3. 대화기록(Session State) 초기화
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -40,17 +37,23 @@ if prompt := st.chat_input("무엇을 도와드릴까요?"):
     st.chat_message("user").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # (2) AI 응답 생성 (스트리밍 방식 아님, 단순 호출 예시)
+    # (2) AI 응답 생성
     with st.chat_message("assistant"):
-        response = client.chat.completions.create(
-            model="gpt-4o-mini", # 사용하시는 배포명(Deployment Name)으로 수정 필요!
-            messages=[
-                {"role": m["role"], "content": m["content"]}
-                for m in st.session_state.messages
-            ]
-        )
-        assistant_reply = response.choices[0].message.content
-        st.markdown(assistant_reply)
+        try:
+            response = client.chat.completions.create(
+                # 중요: 모델 이름도 변수로 받아와야 배포명이 바뀌어도 코드를 안 고쳐도 됩니다.
+                model=os.getenv("AZURE_OAI_DEPLOYMENT"), 
+                messages=[
+                    {"role": m["role"], "content": m["content"]}
+                    for m in st.session_state.messages
+                ]
+            )
+            assistant_reply = response.choices[0].message.content
+            st.markdown(assistant_reply)
 
-    # (3) AI 응답 저장
-    st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+            # (3) AI 응답 저장
+            st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+            
+        except Exception as e:
+            # 에러가 나면 붉은색 박스로 보여줍니다.
+            st.error(f"오류가 발생했습니다: {e}")
