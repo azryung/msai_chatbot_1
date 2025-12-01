@@ -70,12 +70,12 @@ from wine_data import search_wine_info
 # 1. 환경 변수 로드
 load_dotenv()
 
-# [변경 1] 탭 이름과 아이콘을 'WinKy'에 맞게 수정
-st.set_page_config(page_title="WinKy Wine Bot", page_icon="😉")
-
-# [변경 2] 타이틀에 윙키 이름과 윙크 이모지 추가
-st.title("😉 WinKy Wine Bot")
-st.caption("취하면 윙크를 날리는 당신의 와인 친구! 단, 매일 취해있을지도 몰라요😉")
+# [디자인 1] 페이지 설정: 아이콘과 제목 설정
+st.set_page_config(
+    page_title="WinKy Wine Bot", 
+    page_icon="😉",
+    layout="centered" # 'wide'로 하면 화면이 넓어집니다. 취향껏 선택!
+)
 
 # [안전 장치] 키 확인
 if not os.getenv("AZURE_OAI_KEY"):
@@ -117,51 +117,92 @@ if "messages" not in st.session_state:
     안녕! 난 윙키(WinKy)야 😉
     와인이 처음이라도 걱정 마, 내가 딱 맞는 걸 찾아줄게!
     
-    가장 맛있는 와인을 추천받으려면 이렇게 알려줘:
-    
     1. **누구랑 마셔?** (혼술, 연인, 친구들)
     2. **어떤 맛 좋아해?** (달달한 거? 씁쓸하고 진한 거?)
     3. **안주는 정했어?** (치즈, 고기, 회, 아니면 깡술?)
+
+    오늘 맛있는 와인이랑 아주아주 행복했으면 좋겠다! 😉
     """
     st.session_state.messages.append({"role": "assistant", "content": welcome_message})
 
-# 4. 화면에 대화 내용 그리기 (시스템 메시지는 숨김)
+# ==========================================
+# [디자인 2] 사이드바 (왼쪽 메뉴) 만들기
+# ==========================================
+with st.sidebar:
+    st.header("🍷 WinKy's Bar")
+    st.markdown("---") # 가로선 긋기
+    
+    # 1) 사용법 안내
+    st.info("💡 **이렇게 물어보세요!**\n\n- 달달한 스파클링 추천해줘\n- 3만원대 선물용 와인 있어?\n- 고기랑 먹을 드라이한 레드!")
+    
+    st.markdown("---")
+    
+    # 2) 대화 초기화 버튼 (새로고침 기능)
+    # 버튼을 누르면 대화 기록을 싹 비우고 새로고침(rerun) 합니다.
+    if st.button("🔄 대화 다시 시작하기", type="primary"):
+        st.session_state.messages = [] # 기록 삭제
+        st.rerun() # 화면 새로고침
+
+# ==========================================
+# 메인 화면 디자인
+# ==========================================
+
+
+# [타이틀 및 부제] 타이틀에 윙키 이름과 윙크 이모지 추가
+st.title("😉 WinKy Wine Bot")
+st.caption("취하면 윙크를 날리는 당신의 와인 친구! 단, 매일 취해있을지도 몰라요😉")
+st.divider() # 깔끔한 구분선
+
+
+# 4. 대화 내용 그리기 (아바타 적용)
 for message in st.session_state.messages:
     if message["role"] != "system":
-        with st.chat_message(message["role"]):
+        # [디자인 3] 역할에 따라 아바타 다르게 주기
+        if message["role"] == "assistant":
+            avatar_icon = "😉" # 윙키 얼굴
+        else:
+            avatar_icon = "👤" # 사용자 얼굴
+            
+        with st.chat_message(message["role"], avatar=avatar_icon):
             st.markdown(message["content"])
+
 
 # 5. 사용자 입력 처리
 # [변경 5] 입력창 안내 문구도 구체적으로 변경
 if prompt := st.chat_input("예: 오늘 썸남이랑 마실 건데 달달한 거 추천해줘!"):
-    
-    # (1) 사용자 질문 보여주기
-    st.chat_message("user").markdown(prompt)
+    # (1) 사용자 메시지 표시 (아바타 적용)
+    with st.chat_message("user", avatar="👤"):
+        st.markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-    # (2) [입력 처리 로직] 내 컴퓨터 와인 창고 뒤지기
+    # (2) 입력 처리 (와인 검색)
     wine_info = search_wine_info(prompt)
     
     # (3) AI에게 보낼 메시지 준비
     if wine_info:
-        print(f"DEBUG: 정보 찾음! -> {wine_info}") 
         context_message = {
             "role": "system",
-            "content": f"다음은 우리 가게의 재고 목록입니다. 이 중에서 추천할 게 있다면 가격과 함께 강력 추천해주세요:\n{wine_info}"
+            "content": f"다음은 우리 가게의 재고 목록입니다. 가격과 특징을 포함해서 추천해주세요:\n{wine_info}"
         }
         messages_to_send = st.session_state.messages + [context_message]
     else:
         messages_to_send = st.session_state.messages
 
-    # (4) AI 답변 받아오기
-    with st.chat_message("assistant"):
-        with st.spinner("윙키가 와인 창고를 뒤적이는 중...🍷"): # 로딩 문구도 변경
+# (4) AI 답변 받아오기
+    with st.chat_message("assistant", avatar="😉"):
+        # 생각하는 동안 뜨는 문구도 예쁘게
+        with st.status("윙키가 창고를 확인하는 중...🍷", expanded=True) as status:
             response = client.chat.completions.create(
                 model=os.getenv("AZURE_OAI_DEPLOYMENT"),
                 messages=messages_to_send
             )
             assistant_reply = response.choices[0].message.content
-            st.markdown(assistant_reply)
+            # 완료되면 상태창 업데이트
+            status.update(label="찾았습니다! 😉", state="complete", expanded=False)
+            
+        st.markdown(assistant_reply)
+
+
 
     # (5) 대화 기록에 저장
     st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
