@@ -3,6 +3,8 @@ import os
 from openai import AzureOpenAI
 from dotenv import load_dotenv
 
+#test commit
+
 
 # 1. 환경 변수 로드 (.env 파일이 같은 폴더에 있어야 함)
 load_dotenv()
