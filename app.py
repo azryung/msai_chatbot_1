@@ -12,8 +12,16 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
 import time
 
-# .env 로드
+# .env 로드 바로 아래에 추가 (디버그용 + 강제 로드)
 load_dotenv()
+import os
+print("DALLE_ENDPOINT:", os.getenv("AZURE_DALLE_ENDPOINT"))  # ← 이거 있으면 Cloud 로그에서 확인 가능
+print("DALLE_KEY 존재?", bool(os.getenv("AZURE_DALLE_KEY")))
+
+# 만약 하나라도 None이면 강제로 기본값 넣기 (테스트용)
+if not os.getenv("AZURE_DALLE_ENDPOINT"):
+    st.error("DALL·E 엔드포인트가 설정되지 않았어요! Secrets 확인해주세요")
+    st.stop()
 
 # Azure OpenAI 설정
 client = AzureOpenAI(
